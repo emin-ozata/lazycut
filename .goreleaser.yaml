@@ -30,7 +30,7 @@ release:
 
 brews:
   - name: lazycut
-    tap:
+    repository:
       owner: emin-ozata
       name: homebrew-tap
       branch: main
