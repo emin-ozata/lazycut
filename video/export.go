@@ -142,15 +142,6 @@ func ExportWithProgress(opts ExportOptions, progress chan<- float64) (string, er
 	return output, nil
 }
 
-func Export(opts ExportOptions) (string, error) {
-	progress := make(chan float64, 10)
-	go func() {
-		for range progress {
-		}
-	}()
-	return ExportWithProgress(opts, progress)
-}
-
 func buildCropFilter(srcW, srcH int, ratio AspectRatio) string {
 	var targetW, targetH int
 	for _, opt := range AspectRatioOptions {

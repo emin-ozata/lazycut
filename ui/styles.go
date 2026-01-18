@@ -14,7 +14,3 @@ var (
 			Foreground(lipgloss.Color("240"))
 )
 
-// FormatTitle formats a panel title
-func FormatTitle(title string) string {
-	return TitleStyle.Render(title)
-}
