@@ -48,19 +48,8 @@ func (t *Timeline) Render(width, height int) string {
 	line3 := " " + t.buildProgressBar(barWidth, pos, dur, trim)
 	line4 := " " + t.buildCursorLine(barWidth, pos, dur)
 
-    var line5 string
-    if t.exportStatus != "" {
-        line5 = " " + t.exportStatus
-    } else if trim.IsComplete() {
-        trimDur := formatDuration(trim.Duration())
-        line5 = fmt.Sprintf(" [%s] Enter:export  p:preview  d/Esc:clear  h/l:±1s  H/L:±5s  ,/.:±1f  0:home  G/$:end  ?:help", trimDur)
-    } else if trim.InPoint != nil {
-        line5 = " IN set | o:set out  d/Esc:clear  h/l:±1s  H/L:±5s  ,/.:±1f  0:home  G/$:end  ?:help"
-    } else if trim.OutPoint != nil {
-        line5 = " OUT set | i:set in  d/Esc:clear  h/l:±1s  H/L:±5s  ,/.:±1f  0:home  G/$:end  ?:help"
-    } else {
-        line5 = " h/l:±1s  H/L:±5s  ,/.:±1f  i:in  o:out  m:mute  Tab:quality  0:home  G/$:end  ?:help"
-    }
+	// Single-line footer with keybindings
+	line5 := t.buildFooterHelp(width)
 
 	content := strings.Join([]string{line1, line2, line3, line4, line5}, "\n")
 
@@ -181,5 +170,56 @@ func repeat(s string, n int) string {
 	for i := 0; i < n; i++ {
 		result += s
 	}
+	return result
+}
+
+// buildFooterHelp generates the keybindings line based on current state
+func (t *Timeline) buildFooterHelp(width int) string {
+	trim := &t.player.Trim
+
+	// Modern, minimal styling - subtle grays with one accent
+	keyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Bold(true)
+	descStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
+	accentStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("75")).Bold(true)
+	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+
+	// Helper to format key-desc pairs
+	kd := func(key, desc string, accent bool) string {
+		if accent {
+			return accentStyle.Render(key) + descStyle.Render(" "+desc)
+		}
+		return keyStyle.Render(key) + descStyle.Render(" "+desc)
+	}
+
+	sep := dimStyle.Render("  ·  ")
+
+	var result string
+
+	if t.exportStatus != "" {
+		result = " " + t.exportStatus
+	} else if trim.IsComplete() {
+		trimDur := formatDuration(trim.Duration())
+		result = " " + dimStyle.Render("["+trimDur+"]") + "  " +
+			kd("Enter", "export", true) + sep +
+			kd("p", "preview", false) + sep +
+			kd("h/l", "±1s", false) + "  " + kd("H/L", "±5s", false) + sep +
+			kd("d", "clear", false) + "  " + kd("?", "help", false)
+	} else if trim.InPoint != nil {
+		result = " " + dimStyle.Render("IN set") + "  " +
+			kd("o", "set out", true) + sep +
+			kd("h/l", "±1s", false) + "  " + kd("H/L", "±5s", false) + sep +
+			kd("d", "clear", false) + "  " + kd("?", "help", false)
+	} else if trim.OutPoint != nil {
+		result = " " + dimStyle.Render("OUT set") + "  " +
+			kd("i", "set in", true) + sep +
+			kd("h/l", "±1s", false) + "  " + kd("H/L", "±5s", false) + sep +
+			kd("d", "clear", false) + "  " + kd("?", "help", false)
+	} else {
+		result = " " + kd("i", "in", false) + "  " + kd("o", "out", false) + sep +
+			kd("h/l", "±1s", false) + "  " + kd("H/L", "±5s", false) + "  " + kd(",/.", "±frame", false) + sep +
+			kd("Tab", "quality", false) + sep +
+			kd("?", "help", false)
+	}
+
 	return result
 }

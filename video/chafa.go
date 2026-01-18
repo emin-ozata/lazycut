@@ -9,7 +9,6 @@ type QualityPreset int
 
 const (
 	QualityLow QualityPreset = iota
-	QualityMedium
 	QualityHigh
 )
 
@@ -17,8 +16,6 @@ func (q QualityPreset) String() string {
 	switch q {
 	case QualityLow:
 		return "LOW"
-	case QualityMedium:
-		return "MEDIUM"
 	case QualityHigh:
 		return "HIGH"
 	}
@@ -26,7 +23,7 @@ func (q QualityPreset) String() string {
 }
 
 func (q QualityPreset) Next() QualityPreset {
-	return (q + 1) % 3
+	return (q + 1) % 2
 }
 
 type ChafaConfig struct {
@@ -43,12 +40,8 @@ var ChafaPresets = map[QualityPreset]ChafaConfig{
 		Colors: "256", Optimize: 9, Work: 1,
 		ColorSpace: "rgb", Dither: "none", ColorExtractor: "average",
 	},
-	QualityMedium: {
-		Colors: "256", Optimize: 5, Work: 5,
-		ColorSpace: "rgb", Dither: "ordered", ColorExtractor: "average",
-	},
 	QualityHigh: {
-		Colors: "full", Optimize: 3, Work: 9,
+		Colors: "full", Optimize: 1, Work: 9,
 		ColorSpace: "din99d", Dither: "diffusion", ColorExtractor: "median",
 	},
 }

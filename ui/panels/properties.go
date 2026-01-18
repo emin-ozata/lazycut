@@ -51,9 +51,7 @@ func (p *Properties) Render(width, height int) string {
 	// Quality indicator with color
 	quality := p.player.Quality()
 	qualityColor := "243" // gray for LOW
-	if quality == video.QualityMedium {
-		qualityColor = "214" // orange
-	} else if quality == video.QualityHigh {
+	if quality == video.QualityHigh {
 		qualityColor = "46" // green
 	}
 	qualityStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(qualityColor))

@@ -427,41 +427,61 @@ func (m Model) handleHelpModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) renderHelpModal(_ string) string {
-	content := `PLAYBACK
-Space     Play/Pause
-m         Mute/Unmute
-h / l     Seek ±1 second
-H / L     Seek ±5 seconds
-, / .     Seek ±1 frame
-0         Go to start
-G or $    Go to end
-Counts    e.g. 5l, 10., 2H
-Tab       Cycle quality
+	// Modern, minimal styling
+	titleStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("252")).
+		Bold(true)
+	sectionStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("245"))
+	keyStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("252")).
+		Bold(true)
+	descStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("245"))
+	dimStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240"))
 
-TRIM
-i         Set in-point
-o         Set out-point
-p         Preview selection
-d / Esc   Clear selection
-Enter     Export (when selection set)
+	// Helper for key-description pairs
+	kd := func(key, desc string) string {
+		return keyStyle.Render(fmt.Sprintf("%-9s", key)) + descStyle.Render(desc)
+	}
 
-OTHER
-u         Undo
-?         Toggle help
-q         Quit
+	playback := sectionStyle.Render("PLAYBACK") + "\n" +
+		kd("Space", "Play/Pause") + "\n" +
+		kd("h / l", "Seek ±1 second") + "\n" +
+		kd("H / L", "Seek ±5 seconds") + "\n" +
+		kd(", / .", "Seek ±1 frame") + "\n" +
+		kd("0", "Go to start") + "\n" +
+		kd("G / $", "Go to end") + "\n" +
+		kd("5l 10.", "Vim-style counts") + "\n" +
+		kd("Tab", "Cycle quality")
 
-[?] or [Esc] to close`
+	trim := sectionStyle.Render("TRIM") + "\n" +
+		kd("i", "Set in-point") + "\n" +
+		kd("o", "Set out-point") + "\n" +
+		kd("p", "Preview selection") + "\n" +
+		kd("d / Esc", "Clear selection") + "\n" +
+		kd("Enter", "Export")
 
-	title := lipgloss.NewStyle().
-		Bold(true).
-		Render("Help")
+	other := sectionStyle.Render("OTHER") + "\n" +
+		kd("u", "Undo") + "\n" +
+		kd("?", "Toggle help") + "\n" +
+		kd("q", "Quit")
+
+	footer := dimStyle.Render("Press any key to close")
+
+	content := titleStyle.Render("Keyboard Shortcuts") + "\n\n" +
+		playback + "\n\n" +
+		trim + "\n\n" +
+		other + "\n\n" +
+		footer
 
 	modal := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("63")).
+		BorderForeground(lipgloss.Color("240")).
 		Padding(1, 3).
 		Width(45).
-		Render(title + "\n\n" + content)
+		Render(content)
 
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, modal)
 }
@@ -487,7 +507,22 @@ func listenProgress(ch <-chan float64) tea.Cmd {
 }
 
 func (m Model) renderExportModal(_ string) string {
-	var content string
+	// Modern, minimal styling
+	titleStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("252")).
+		Bold(true)
+	labelStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("245"))
+	valueStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("252"))
+	accentStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("75")).
+		Bold(true)
+	dimStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240"))
+	cmdStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240")).
+		Italic(true)
 
 	props := m.player.Properties()
 	opts := video.ExportOptions{
@@ -501,73 +536,67 @@ func (m Model) renderExportModal(_ string) string {
 	}
 	ffmpegCmd := video.BuildFFmpegCommand(opts)
 
-	cmdStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("244")).
-		Italic(true)
+	var content string
 
 	if m.exporting {
-		title := lipgloss.NewStyle().
-			Bold(true).
-			Render("Exporting...")
+		title := titleStyle.Render("Exporting")
 
 		barWidth := 50
 		filled := int(m.exportProgress * float64(barWidth))
 		empty := barWidth - filled
-		bar := "[" + strings.Repeat("=", filled) + strings.Repeat("-", empty) + "]"
-		percent := fmt.Sprintf("%3.0f%%", m.exportProgress*100)
+		progressBar := dimStyle.Render("[") +
+			accentStyle.Render(strings.Repeat("=", filled)) +
+			dimStyle.Render(strings.Repeat("-", empty)+"]")
+		percent := valueStyle.Render(fmt.Sprintf("%3.0f%%", m.exportProgress*100))
 
-		content = fmt.Sprintf(`%s
-
-%s %s
-
-%s`, title, bar, percent, cmdStyle.Render(ffmpegCmd))
+		content = title + "\n\n" +
+			progressBar + " " + percent + "\n\n" +
+			cmdStyle.Render(ffmpegCmd)
 	} else {
+		title := titleStyle.Render("Export Selection")
+
 		filename := m.exportFilename
 		filenameDisplay := filename
 		if m.exportFocusField == 0 {
-			filenameDisplay = filename + "_"
+			filenameDisplay = filename + dimStyle.Render("_")
 		}
 		if filename == "" && m.exportFocusField != 0 {
-			filenameDisplay = "(auto)"
+			filenameDisplay = dimStyle.Render("(auto)")
 		}
 
 		fnIndicator := "  "
 		arIndicator := "  "
 		if m.exportFocusField == 0 {
-			fnIndicator = "> "
+			fnIndicator = accentStyle.Render("> ")
 		} else {
-			arIndicator = "> "
+			arIndicator = accentStyle.Render("> ")
 		}
 
 		var ratioLine string
 		for i, opt := range video.AspectRatioOptions {
 			if i == m.exportAspectRatio {
-				ratioLine += "[" + opt.Label + "] "
+				ratioLine += accentStyle.Render("["+opt.Label+"]") + " "
 			} else {
-				ratioLine += " " + opt.Label + "  "
+				ratioLine += dimStyle.Render(" "+opt.Label) + "  "
 			}
 		}
 
-		title := lipgloss.NewStyle().
-			Bold(true).
-			Render("Export Selection")
+		keyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Bold(true)
+		footer := keyStyle.Render("↑↓") + labelStyle.Render(" field  ") +
+			keyStyle.Render("←→") + labelStyle.Render(" ratio  ") +
+			keyStyle.Render("Enter") + labelStyle.Render(" export  ") +
+			keyStyle.Render("Esc") + labelStyle.Render(" cancel")
 
-		content = fmt.Sprintf(`%s
-
-%sFilename: %s
-
-%sAspect:   %s
-
-%s
-
-[up/down or j/k]: switch field
-[left/right or h/l]: change ratio
-[enter]: export       [esc]: cancel`, title, fnIndicator, filenameDisplay, arIndicator, ratioLine, cmdStyle.Render(ffmpegCmd))
+		content = title + "\n\n" +
+			fnIndicator + labelStyle.Render("Filename  ") + valueStyle.Render(filenameDisplay) + "\n\n" +
+			arIndicator + labelStyle.Render("Aspect    ") + ratioLine + "\n\n" +
+			cmdStyle.Render(ffmpegCmd) + "\n\n" +
+			footer
 	}
 
 	modal := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("63")).
+		BorderForeground(lipgloss.Color("240")).
 		Padding(1, 3).
 		Width(75).
 		Render(content)

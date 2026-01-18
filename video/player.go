@@ -79,7 +79,7 @@ func NewPlayer(path string) (*Player, error) {
 		playing:    false,
 		fps:        int(props.FPS),
 		properties: props,
-		quality:    QualityMedium,
+		quality:    QualityHigh,
 		stopChan:   make(chan struct{}),
 		cache:      NewFrameCache(DefaultCacheCapacity, props.FPS),
 	}, nil
