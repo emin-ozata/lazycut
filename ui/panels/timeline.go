@@ -48,19 +48,19 @@ func (t *Timeline) Render(width, height int) string {
 	line3 := " " + t.buildProgressBar(barWidth, pos, dur, trim)
 	line4 := " " + t.buildCursorLine(barWidth, pos, dur)
 
-	var line5 string
-	if t.exportStatus != "" {
-		line5 = " " + t.exportStatus
-	} else if trim.IsComplete() {
-		trimDur := formatDuration(trim.Duration())
-		line5 = fmt.Sprintf(" [%s] Enter:export  p:preview  Esc:clear  ?:help", trimDur)
-	} else if trim.InPoint != nil {
-		line5 = " IN set | o:set out  Esc:clear  ?:help"
-	} else if trim.OutPoint != nil {
-		line5 = " OUT set | i:set in  Esc:clear  ?:help"
-	} else {
-		line5 = " i:in  o:out  Tab:quality  ?:help"
-	}
+    var line5 string
+    if t.exportStatus != "" {
+        line5 = " " + t.exportStatus
+    } else if trim.IsComplete() {
+        trimDur := formatDuration(trim.Duration())
+        line5 = fmt.Sprintf(" [%s] Enter:export  p:preview  d/Esc:clear  h/l:±1s  H/L:±5s  ,/.:±1f  0:home  G/$:end  ?:help", trimDur)
+    } else if trim.InPoint != nil {
+        line5 = " IN set | o:set out  d/Esc:clear  h/l:±1s  H/L:±5s  ,/.:±1f  0:home  G/$:end  ?:help"
+    } else if trim.OutPoint != nil {
+        line5 = " OUT set | i:set in  d/Esc:clear  h/l:±1s  H/L:±5s  ,/.:±1f  0:home  G/$:end  ?:help"
+    } else {
+        line5 = " h/l:±1s  H/L:±5s  ,/.:±1f  i:in  o:out  m:mute  Tab:quality  0:home  G/$:end  ?:help"
+    }
 
 	content := strings.Join([]string{line1, line2, line3, line4, line5}, "\n")
 

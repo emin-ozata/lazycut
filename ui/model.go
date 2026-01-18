@@ -44,8 +44,11 @@ type Model struct {
 	exportProgress     float64
 	exportProgressChan <-chan float64
 
-	showHelpModal bool
-	undoStack     []trimSnapshot
+    showHelpModal bool
+    undoStack     []trimSnapshot
+
+    // Vim-style input
+    repeatCount int
 }
 
 type trimSnapshot struct {
@@ -138,6 +141,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		frameDuration := time.Second / time.Duration(fps)
 
 		switch msg.String() {
+		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
+			m.repeatCount = m.repeatCount*10 + int(msg.Runes[0]-'0')
+			m.exportStatus = fmt.Sprintf("%dx", m.repeatCount)
+			return m, nil
+		case "0":
+			if m.repeatCount == 0 {
+				m.player.Seek(0)
+				return m, nil
+			}
+			m.repeatCount *= 10
+			m.exportStatus = fmt.Sprintf("%dx", m.repeatCount)
+			return m, nil
 		case "ctrl+c", "q":
 			m.player.Close()
 			return m, tea.Quit
@@ -147,27 +162,50 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		case "h":
-			m.player.Seek(pos - time.Second)
+			n := m.repeatCount
+			if n <= 0 { n = 1 }
+			m.player.Seek(pos - time.Duration(n)*time.Second)
+			m.repeatCount = 0
 			return m, nil
 
 		case "l":
-			m.player.Seek(pos + time.Second)
+			n := m.repeatCount
+			if n <= 0 { n = 1 }
+			m.player.Seek(pos + time.Duration(n)*time.Second)
+			m.repeatCount = 0
 			return m, nil
 
 		case "H":
-			m.player.Seek(pos - 5*time.Second)
+			n := m.repeatCount
+			if n <= 0 { n = 1 }
+			m.player.Seek(pos - time.Duration(n*5)*time.Second)
+			m.repeatCount = 0
 			return m, nil
 
 		case "L":
-			m.player.Seek(pos + 5*time.Second)
+			n := m.repeatCount
+			if n <= 0 { n = 1 }
+			m.player.Seek(pos + time.Duration(n*5)*time.Second)
+			m.repeatCount = 0
 			return m, nil
 
 		case ",":
-			m.player.Seek(pos - frameDuration)
+			n := m.repeatCount
+			if n <= 0 { n = 1 }
+			m.player.Seek(pos - time.Duration(n)*frameDuration)
+			m.repeatCount = 0
 			return m, nil
 
 		case ".":
-			m.player.Seek(pos + frameDuration)
+			n := m.repeatCount
+			if n <= 0 { n = 1 }
+			m.player.Seek(pos + time.Duration(n)*frameDuration)
+			m.repeatCount = 0
+			return m, nil
+
+		case "$", "G":
+			m.player.Seek(m.player.Duration())
+			m.repeatCount = 0
 			return m, nil
 
 		case "i":
@@ -196,7 +234,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 
-		case "esc":
+		case "esc", "d":
 			if m.player.Trim.InPoint != nil || m.player.Trim.OutPoint != nil {
 				m.saveTrimState()
 			}
@@ -227,11 +265,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func renderPanel(content, title string, width, height int) string {
-	innerWidth := width - 2
-	innerHeight := height - 2
+    innerWidth := width - 2
+    innerHeight := height - 2
 
-	// Combine title and content, then pad to exact height
-	inner := title + "\n" + content
+    // Combine title and content only if title provided
+    inner := content
+    if strings.TrimSpace(title) != "" {
+        inner = title + "\n" + content
+    }
 	lines := strings.Split(inner, "\n")
 	for len(lines) < innerHeight {
 		lines = append(lines, "")
@@ -259,20 +300,17 @@ func (m Model) View() string {
 			Render("Terminal too small")
 	}
 
-	previewContent := m.preview.Render(dims.PreviewContentWidth, dims.PreviewContentHeight)
-	previewTitle := FormatTitle("Preview")
-	previewPanel := renderPanel(previewContent, previewTitle, dims.PreviewWidth, dims.PreviewHeight)
+    previewContent := m.preview.Render(dims.PreviewContentWidth, dims.PreviewContentHeight)
+    previewPanel := renderPanel(previewContent, "", dims.PreviewWidth, dims.PreviewHeight)
 
-	propertiesContent := m.properties.Render(dims.PropertiesContentWidth, dims.PropertiesContentHeight)
-	propertiesTitle := FormatTitle("Properties")
-	propertiesPanel := renderPanel(propertiesContent, propertiesTitle, dims.PropertiesWidth, dims.PropertiesHeight)
+    propertiesContent := m.properties.Render(dims.PropertiesContentWidth, dims.PropertiesContentHeight)
+    propertiesPanel := renderPanel(propertiesContent, "", dims.PropertiesWidth, dims.PropertiesHeight)
 
 	topRow := lipgloss.JoinHorizontal(lipgloss.Top, previewPanel, propertiesPanel)
 
-	m.timeline.SetExportStatus(m.exportStatus)
-	timelineContent := m.timeline.Render(dims.TimelineContentWidth, dims.TimelineContentHeight)
-	timelineTitle := FormatTitle("Timeline")
-	timelinePanel := renderPanel(timelineContent, timelineTitle, dims.TimelineWidth, dims.TimelineHeight)
+    m.timeline.SetExportStatus(m.exportStatus)
+    timelineContent := m.timeline.Render(dims.TimelineContentWidth, dims.TimelineContentHeight)
+    timelinePanel := renderPanel(timelineContent, "", dims.TimelineWidth, dims.TimelineHeight)
 
 	base := lipgloss.JoinVertical(lipgloss.Left, topRow, timelinePanel)
 
@@ -287,7 +325,7 @@ func (m Model) View() string {
 }
 
 func (m Model) handleExportModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.Type {
+    switch msg.Type {
 	case tea.KeyEsc:
 		if !m.exporting {
 			m.showExportModal = false
@@ -347,12 +385,34 @@ func (m Model) handleExportModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	default:
-		if m.exportFocusField == 0 && len(msg.Runes) > 0 {
-			m.exportFilename += string(msg.Runes)
-		}
-		return m, nil
-	}
+    default:
+        // Vim-style navigation aliases in modal
+        switch msg.String() {
+        case "j":
+            if m.exportFocusField < 1 { m.exportFocusField++ }
+            return m, nil
+        case "k":
+            if m.exportFocusField > 0 { m.exportFocusField-- }
+            return m, nil
+        case "h":
+            if m.exportFocusField == 1 {
+                m.exportAspectRatio--
+                if m.exportAspectRatio < 0 {
+                    m.exportAspectRatio = len(video.AspectRatioOptions) - 1
+                }
+            }
+            return m, nil
+        case "l":
+            if m.exportFocusField == 1 {
+                m.exportAspectRatio = (m.exportAspectRatio + 1) % len(video.AspectRatioOptions)
+            }
+            return m, nil
+        }
+        if m.exportFocusField == 0 && len(msg.Runes) > 0 {
+            m.exportFilename += string(msg.Runes)
+        }
+        return m, nil
+    }
 
 	return m, nil
 }
@@ -369,16 +429,20 @@ func (m Model) handleHelpModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m Model) renderHelpModal(_ string) string {
 	content := `PLAYBACK
 Space     Play/Pause
+m         Mute/Unmute
 h / l     Seek ±1 second
 H / L     Seek ±5 seconds
 , / .     Seek ±1 frame
+0         Go to start
+G or $    Go to end
+Counts    e.g. 5l, 10., 2H
 Tab       Cycle quality
 
 TRIM
 i         Set in-point
 o         Set out-point
 p         Preview selection
-Esc       Clear selection
+d / Esc   Clear selection
 Enter     Export (when selection set)
 
 OTHER
@@ -496,8 +560,9 @@ func (m Model) renderExportModal(_ string) string {
 
 %s
 
-[up/down]: switch field  [left/right]: change ratio
-[enter]: export          [esc]: cancel`, title, fnIndicator, filenameDisplay, arIndicator, ratioLine, cmdStyle.Render(ffmpegCmd))
+[up/down or j/k]: switch field
+[left/right or h/l]: change ratio
+[enter]: export       [esc]: cancel`, title, fnIndicator, filenameDisplay, arIndicator, ratioLine, cmdStyle.Render(ffmpegCmd))
 	}
 
 	modal := lipgloss.NewStyle().

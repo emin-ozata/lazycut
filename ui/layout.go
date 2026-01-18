@@ -6,12 +6,12 @@ const (
 	minPanelHeight = 5
 	// Border (2) + padding (2 left + 2 right) = 6 horizontal overhead per panel
 	horizontalOverhead = 6
-	// Border (2) + title line (1) = 3 vertical overhead per panel
-	verticalOverhead = 3
-	// Timeline fixed height (includes border)
-	// Content: time line + marker line + progress bar + cursor line + help = 5 lines
-	// Plus vertical overhead (3) = 8
-	timelineFixedHeight = 8
+    // Border (2) = 2 vertical overhead per panel (no title line)
+    verticalOverhead = 2
+    // Timeline fixed height (includes border)
+    // Content: time line + marker line + progress bar + cursor line + help = 5 lines
+    // Plus vertical overhead (2) = 7
+    timelineFixedHeight = 7
 	// Properties panel fixed width
 	propertiesFixedWidth = 30
 )
