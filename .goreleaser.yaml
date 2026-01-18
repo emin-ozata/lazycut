@@ -1,0 +1,49 @@
+project_name: lazycut
+
+builds:
+  - id: lazycut
+    main: .
+    binary: lazycut
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+    flags:
+      - -trimpath
+
+archives:
+  - id: lazycut
+    builds: [lazycut]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format: tar.gz
+
+release:
+  draft: false
+  prerelease: auto
+
+brews:
+  - name: lazycut
+    tap:
+      owner: emin-ozata
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    homepage: https://github.com/emin-ozata/lazycut
+    description: Terminal-based video trimming TUI (ffmpeg + chafa)
+    dependencies:
+      - name: ffmpeg
+      - name: chafa
+    test: |
+      output = shell_output("#{bin}/lazycut 2>&1", 1)
+      assert_match "Usage: lazycut", output
+
+changelog:
+  use: github
