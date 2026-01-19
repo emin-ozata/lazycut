@@ -9,11 +9,19 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+var version = "dev"
+
 func main() {
 	// Check command line arguments
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: lazycut <video.mp4>")
 		os.Exit(1)
+	}
+
+	// Handle version flag
+	if os.Args[1] == "-v" || os.Args[1] == "--version" {
+		fmt.Printf("lazycut version %s\n", version)
+		os.Exit(0)
 	}
 
 	videoPath := os.Args[1]

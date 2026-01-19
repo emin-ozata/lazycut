@@ -15,7 +15,7 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - -s -w
+      - -s -w -X main.version={{.Version}}
     flags:
       - -trimpath
 
