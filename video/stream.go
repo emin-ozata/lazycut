@@ -6,31 +6,41 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 )
 
 // FrameStream keeps a long-lived ffmpeg process that outputs scaled BMP frames.
 type FrameStream struct {
-	cmd       *exec.Cmd
-	stdout    io.ReadCloser
-	cancel    context.CancelFunc
-	width     int
-	height    int
-	targetFPS int
-	mu        sync.Mutex
+	cmd        *exec.Cmd
+	stdout     io.ReadCloser
+	cancel     context.CancelFunc
+	width      int
+	height     int
+	videoWidth int
+	targetFPS  int
+	mu         sync.Mutex
 }
 
-func NewFrameStream(path string, start time.Duration, width, height, fps int) (*FrameStream, error) {
+func NewFrameStream(path string, start time.Duration, width, height, fps, videoWidth int) (*FrameStream, error) {
 	if width <= 0 || height <= 0 || fps <= 0 {
 		return nil, fmt.Errorf("invalid stream configuration")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+
+	// Build filter chain: scale (if needed) -> fps
+	var filters []string
+	if videoWidth > 1920 {
+		filters = append(filters, "scale=1920:-1:flags=fast_bilinear")
+	}
+	filters = append(filters, fmt.Sprintf("fps=%d", fps))
+
 	args := []string{
 		"-ss", fmt.Sprintf("%.3f", start.Seconds()),
 		"-i", path,
-		"-vf", fmt.Sprintf("fps=%d", fps),
+		"-vf", strings.Join(filters, ","),
 		"-f", "image2pipe",
 		"-vcodec", "bmp",
 		"-loglevel", "error",
@@ -49,12 +59,13 @@ func NewFrameStream(path string, start time.Duration, width, height, fps int) (*
 	}
 
 	return &FrameStream{
-		cmd:       cmd,
-		stdout:    stdout,
-		cancel:    cancel,
-		width:     width,
-		height:    height,
-		targetFPS: fps,
+		cmd:        cmd,
+		stdout:     stdout,
+		cancel:     cancel,
+		width:      width,
+		height:     height,
+		videoWidth: videoWidth,
+		targetFPS:  fps,
 	}, nil
 }
 
@@ -77,11 +88,12 @@ func (s *FrameStream) Close() {
 }
 
 // NeedsRestart checks if the stream configuration matches the desired parameters.
-func (s *FrameStream) NeedsRestart(width, height, fps int) bool {
+func (s *FrameStream) NeedsRestart(width, height, fps, videoWidth int) bool {
 	if s == nil {
 		return true
 	}
-	return s.width != width || s.height != height || s.targetFPS != fps
+	return s.width != width || s.height != height ||
+		s.targetFPS != fps || s.videoWidth != videoWidth
 }
 
 // NextFrame reads the next BMP frame from the stream.
