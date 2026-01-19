@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 )
@@ -304,11 +305,15 @@ func (p *Player) playbackLoop() {
 			fps = 24
 		}
 
-		if currentStream == nil || currentStream.NeedsRestart(width, height, fps) {
+		// Use preview parameters for smooth playback
+		previewFPS := p.properties.PreviewFPS()
+		videoWidth := p.properties.Width
+
+		if currentStream == nil || currentStream.NeedsRestart(width, height, previewFPS, videoWidth) {
 			if currentStream != nil {
 				currentStream.Close()
 			}
-			stream, err := NewFrameStream(p.path, pos, width, height, fps)
+			stream, err := NewFrameStream(p.path, pos, width, height, previewFPS, videoWidth)
 			if err != nil {
 				time.Sleep(20 * time.Millisecond)
 				continue
@@ -382,15 +387,18 @@ func (p *Player) renderFrame(position time.Duration, width, height int) (string,
 	config := ChafaPresets[p.quality]
 	p.mu.Unlock()
 
-	fps := p.fps
-	if fps <= 0 {
-		fps = 24
+	// Build filter chain with preview parameters
+	previewFPS := p.properties.PreviewFPS()
+	var filters []string
+	if p.properties.NeedsScaling() {
+		filters = append(filters, "scale=1920:-1:flags=fast_bilinear")
 	}
+	filters = append(filters, fmt.Sprintf("fps=%d", previewFPS))
 
 	ffmpegCmd := exec.Command("ffmpeg",
 		"-ss", fmt.Sprintf("%.3f", position.Seconds()),
 		"-i", p.path,
-		"-vf", fmt.Sprintf("fps=%d", fps),
+		"-vf", strings.Join(filters, ","),
 		"-vframes", "1",
 		"-f", "image2pipe",
 		"-vcodec", "bmp",
