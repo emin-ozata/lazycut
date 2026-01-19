@@ -63,6 +63,9 @@ type Player struct {
 	// Optimization: Frame cache
 	cache *FrameCache
 
+	// Audio playback
+	audioPlayer *AudioPlayer
+
 	Trim TrimState
 }
 
@@ -73,15 +76,16 @@ func NewPlayer(path string) (*Player, error) {
 	}
 
 	return &Player{
-		path:       path,
-		duration:   props.Duration,
-		position:   0,
-		playing:    false,
-		fps:        int(props.FPS),
-		properties: props,
-		quality:    QualityHigh,
-		stopChan:   make(chan struct{}),
-		cache:      NewFrameCache(DefaultCacheCapacity, props.FPS),
+		path:        path,
+		duration:    props.Duration,
+		position:    0,
+		playing:     false,
+		fps:         int(props.FPS),
+		properties:  props,
+		quality:     QualityHigh,
+		stopChan:    make(chan struct{}),
+		cache:       NewFrameCache(DefaultCacheCapacity, props.FPS),
+		audioPlayer: NewAudioPlayer(path),
 	}, nil
 }
 
@@ -113,7 +117,11 @@ func (p *Player) Play() error {
 	} else {
 		p.frameInterval = time.Second / 24
 	}
+	pos := p.position
 	p.mu.Unlock()
+
+	// Start audio playback
+	p.audioPlayer.Start(pos.Seconds())
 
 	go p.playbackLoop()
 	return nil
@@ -133,6 +141,9 @@ func (p *Player) Pause() {
 	width, height := p.width, p.height
 	quality := p.quality
 	p.mu.Unlock()
+
+	// Stop audio playback
+	p.audioPlayer.Stop()
 
 	if stream != nil {
 		stream.Close()
@@ -183,8 +194,16 @@ func (p *Player) Seek(position time.Duration) {
 	p.stream = nil
 	p.mu.Unlock()
 
+	// Stop audio during seek
+	p.audioPlayer.Stop()
+
 	if playing && stream != nil {
 		stream.Close()
+	}
+
+	// Restart audio from new position if playing
+	if playing {
+		p.audioPlayer.Start(position.Seconds())
 	}
 
 	if !playing && width > 0 && height > 0 {
@@ -237,6 +256,15 @@ func (p *Player) CycleQuality() QualityPreset {
 
 func (p *Player) Close() {
 	p.Pause()
+	p.audioPlayer.Stop()
+}
+
+func (p *Player) ToggleMute() {
+	p.audioPlayer.ToggleMute()
+}
+
+func (p *Player) IsMuted() bool {
+	return p.audioPlayer.IsMuted()
 }
 
 func (p *Player) playbackLoop() {
@@ -320,6 +348,8 @@ func (p *Player) playbackLoop() {
 				p.stream = nil
 			}
 			p.mu.Unlock()
+			// Stop audio when playback ends
+			p.audioPlayer.Stop()
 			return
 		}
 		p.mu.Unlock()
@@ -416,6 +446,9 @@ func CheckDependencies() error {
 	}
 	if _, err := exec.LookPath("ffprobe"); err != nil {
 		return fmt.Errorf("ffprobe not found. Install: brew install ffmpeg")
+	}
+	if _, err := exec.LookPath("ffplay"); err != nil {
+		return fmt.Errorf("ffplay not found. Install: brew install ffmpeg")
 	}
 	if _, err := exec.LookPath("chafa"); err != nil {
 		return fmt.Errorf("chafa not found. Install: brew install chafa")
