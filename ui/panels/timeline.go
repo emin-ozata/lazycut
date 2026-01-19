@@ -38,12 +38,17 @@ func (t *Timeline) Render(width, height int) string {
 		playIcon = "❚❚"
 	}
 
+	muteIcon := "))"
+	if t.player.IsMuted() {
+		muteIcon = "×)"
+	}
+
 	barWidth := width - 3
 	if barWidth < 10 {
 		barWidth = 10
 	}
 
-	line1 := fmt.Sprintf(" %s %s / %s", playIcon, posStr, durStr)
+	line1 := fmt.Sprintf(" %s %s / %s  %s", playIcon, posStr, durStr, muteIcon)
 	line2 := " " + t.buildMarkerLine(barWidth, dur, trim)
 	line3 := " " + t.buildProgressBar(barWidth, pos, dur, trim)
 	line4 := " " + t.buildCursorLine(barWidth, pos, dur)
@@ -217,7 +222,7 @@ func (t *Timeline) buildFooterHelp(width int) string {
 	} else {
 		result = " " + kd("i", "in", false) + "  " + kd("o", "out", false) + sep +
 			kd("h/l", "±1s", false) + "  " + kd("H/L", "±5s", false) + "  " + kd(",/.", "±frame", false) + sep +
-			kd("Tab", "quality", false) + sep +
+			kd("m", "mute", false) + "  " + kd("Tab", "quality", false) + sep +
 			kd("?", "help", false)
 	}
 

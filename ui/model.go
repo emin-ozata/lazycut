@@ -258,6 +258,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "tab":
 			m.player.CycleQuality()
 			return m, nil
+
+		case "m":
+			m.player.ToggleMute()
+			return m, nil
 		}
 	}
 
@@ -454,6 +458,7 @@ func (m Model) renderHelpModal(_ string) string {
 		kd("0", "Go to start") + "\n" +
 		kd("G / $", "Go to end") + "\n" +
 		kd("5l 10.", "Vim-style counts") + "\n" +
+		kd("m", "Toggle mute") + "\n" +
 		kd("Tab", "Cycle quality")
 
 	trim := sectionStyle.Render("TRIM") + "\n" +
