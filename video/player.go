@@ -3,7 +3,9 @@ package video
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -448,18 +450,48 @@ func (p *Player) renderFrameFromBytes(frame []byte, width, height int, quality Q
 	return chafaOut.String(), nil
 }
 
+func getInstallCommand(packageName string) string {
+	switch runtime.GOOS {
+	case "darwin":
+		return fmt.Sprintf("brew install %s", packageName)
+	case "linux":
+		// Detect Linux package manager
+		if _, err := os.Stat("/etc/debian_version"); err == nil {
+			return fmt.Sprintf("sudo apt install %s", packageName)
+		}
+		if _, err := os.Stat("/etc/redhat-release"); err == nil {
+			return fmt.Sprintf("sudo dnf install %s", packageName)
+		}
+		// Fallback for unknown Linux distro
+		return fmt.Sprintf("sudo apt install %s (Debian/Ubuntu) or sudo dnf install %s (Fedora/RHEL)", packageName, packageName)
+	case "windows":
+		// Map package names for Windows winget
+		wingetPackages := map[string]string{
+			"ffmpeg": "Gyan.FFmpeg",
+			"chafa":  "chafa",
+		}
+		if wingetName, ok := wingetPackages[packageName]; ok {
+			return fmt.Sprintf("winget install %s", wingetName)
+		}
+		return fmt.Sprintf("winget install %s", packageName)
+	default:
+		// Unknown OS, show all options
+		return fmt.Sprintf("brew install %s (macOS) or sudo apt install %s (Linux)", packageName, packageName)
+	}
+}
+
 func CheckDependencies() error {
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
-		return fmt.Errorf("ffmpeg not found. Install: brew install ffmpeg")
+		return fmt.Errorf("ffmpeg not found. Install: %s", getInstallCommand("ffmpeg"))
 	}
 	if _, err := exec.LookPath("ffprobe"); err != nil {
-		return fmt.Errorf("ffprobe not found. Install: brew install ffmpeg")
+		return fmt.Errorf("ffprobe not found. Install: %s", getInstallCommand("ffmpeg"))
 	}
 	if _, err := exec.LookPath("ffplay"); err != nil {
-		return fmt.Errorf("ffplay not found. Install: brew install ffmpeg")
+		return fmt.Errorf("ffplay not found. Install: %s", getInstallCommand("ffmpeg"))
 	}
 	if _, err := exec.LookPath("chafa"); err != nil {
-		return fmt.Errorf("chafa not found. Install: brew install chafa")
+		return fmt.Errorf("chafa not found. Install: %s", getInstallCommand("chafa"))
 	}
 	return nil
 }
